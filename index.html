@@ -80,9 +80,7 @@
     const closeBtn = document.getElementById('close-btn');
 
     captureBtn.addEventListener('click', () => {
-      // 1. AR.js が生成したカメラ映像の <video> タグを取得
       const video = document.querySelector('video');
-      // 2. HTMLのフォトフレーム画像を取得
       const frame = document.getElementById('photo-frame');
 
       if (!video) {
@@ -90,25 +88,44 @@
         return;
       }
 
-      // 3. 合成用の隠し Canvas を作成
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
-      // 本物のカメラ映像の解像度に合わせて Canvas のサイズを設定
+      // 1. Canvasのサイズをカメラ映像の「生の解像度」に合わせる
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
-      // 【ステップ1】まずカメラ映像を Canvas に描画
+      // 【ステップ1】カメラ映像をそのまま描画
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      // 【ステップ2】その上にフォトフレーム画像を重ねて描画
-      // ※注意: アスペクト比を保ってきれいに載せるため、ビデオと同じサイズに引き伸ばして描画しています
-      ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+      // 【ステップ2】フォトフレームの縦横比を保って中央に合成する計算
+      // カメラの比率と、フレーム画像本来の比率を計算
+      const canvasRatio = canvas.width / canvas.height;
+      const frameRatio = frame.naturalWidth / frame.naturalHeight;
 
-      // 【ステップ3】完成した Canvas を画像データ（DataURL）に変換
+      let renderWidth, renderHeight, xOffset, yOffset;
+
+      // 画面の表示（object-fit: contain）と同じように、
+      // フレーム全体が必ず写真に収まり、比率を崩さないための計算
+      if (canvasRatio > frameRatio) {
+        // カメラの方が横に広い場合（または縦が短い場合）
+        renderHeight = canvas.height;
+        renderWidth = canvas.height * frameRatio;
+        xOffset = (canvas.width - renderWidth) / 2;
+        yOffset = 0;
+      } else {
+        // カメラの方が縦に長い場合
+        renderWidth = canvas.width;
+        renderHeight = canvas.width / frameRatio;
+        xOffset = 0;
+        yOffset = (canvas.height - renderHeight) / 2;
+      }
+
+      // 【ステップ3】比率を保ったサイズ（renderWidth/Height）と、中央に寄せる位置（xOffset/yOffset）を指定して描画
+      ctx.drawImage(frame, xOffset, yOffset, renderWidth, renderHeight);
+
+      // 【ステップ4】画像データに変換してプレビュー表示
       const dataUrl = canvas.toDataURL('image/jpeg');
-
-      // プレビュー画面を表示して、ユーザーに長押し保存してもらう
       previewImg.src = dataUrl;
       previewContainer.style.display = 'flex';
     });
