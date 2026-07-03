@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>シンプルWebARフォトフレーム</title>
+  <!-- A-Frame と AR.js の読み込み -->
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+
+  <style>
+    body { margin: 0; overflow: hidden; font-family: sans-serif; }
+    
+    /* 1. フォトフレーム（画面にぴったり固定、タップイベントを通す） */
+    #photo-frame {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 10;
+      pointer-events: none; /* これがないと後ろのARが操作できなくなります */
+      object-fit: contain; /* 画面に収まるように配置。デザインに応じて cover に変更可 */
+    }
+
+    /* 2. UIレイヤー（撮影ボタンなど） */
+    #ui-container {
+      position: fixed;
+      bottom: 30px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+    }
+    #capture-btn {
+      width: 70px; height: 70px;
+      border-radius: 50%;
+      border: 5px solid #fff;
+      background-color: rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      cursor: pointer;
+    }
+    #capture-btn:active { background-color: rgba(255, 255, 255, 0.7); }
+
+    /* 3. 撮影後のプレビュー画面（長押し保存用） */
+    #preview-container {
+      display: none; /* 初期状態は非表示 */
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.8);
+      z-index: 30;
+      flex-direction: column; justify-content: center; align-items: center;
+    }
+    #preview-img { max-width: 90%; max-height: 70%; border: 3px solid white; }
+    #close-btn { margin-top: 20px; padding: 10px 20px; background: white; border: none; border-radius: 5px; }
+  </style>
+</head>
+<body>
+
+  <!-- AR空間（カメラ映像を表示するためだけに利用） -->
+  <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <!-- フォトフレーム画像（透過PNG） -->
+  <img id="photo-frame" src="frame.png" alt="Frame">
+
+  <!-- 撮影ボタン -->
+  <div id="ui-container">
+    <button id="capture-btn" aria-label="写真を撮影する"></button>
+  </div>
+
+  <!-- プレビュー・保存画面 -->
+  <div id="preview-container">
+    <p style="color: white; margin-bottom: 10px;">画像を長押しして保存してね！</p>
+    <img id="preview-img" alt="撮影された写真">
+    <button id="close-btn">もう一度撮る</button>
+  </div>
+
+  <script>
+    const captureBtn = document.getElementById('capture-btn');
+    const previewContainer = document.getElementById('preview-container');
+    const previewImg = document.getElementById('preview-img');
+    const closeBtn = document.getElementById('close-btn');
+
+    captureBtn.addEventListener('click', () => {
+      // 1. AR.js が生成したカメラ映像の <video> タグを取得
+      const video = document.querySelector('video');
+      // 2. HTMLのフォトフレーム画像を取得
+      const frame = document.getElementById('photo-frame');
+
+      if (!video) {
+        alert("カメラ映像の読み込みを待っています...");
+        return;
+      }
+
+      // 3. 合成用の隠し Canvas を作成
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // 本物のカメラ映像の解像度に合わせて Canvas のサイズを設定
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      // 【ステップ1】まずカメラ映像を Canvas に描画
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // 【ステップ2】その上にフォトフレーム画像を重ねて描画
+      // ※注意: アスペクト比を保ってきれいに載せるため、ビデオと同じサイズに引き伸ばして描画しています
+      ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+
+      // 【ステップ3】完成した Canvas を画像データ（DataURL）に変換
+      const dataUrl = canvas.toDataURL('image/jpeg');
+
+      // プレビュー画面を表示して、ユーザーに長押し保存してもらう
+      previewImg.src = dataUrl;
+      previewContainer.style.display = 'flex';
+    });
+
+    // プレビューを閉じる処理
+    closeBtn.addEventListener('click', () => {
+      previewContainer.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
